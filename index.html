@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf8f5">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Eine gemeinsam genutzte Geschenkwunschliste: Geschenkideen ansehen, reservieren und Doppelkäufe vermeiden.">
+  <title>Wunschfunken – Geschenkwunschliste</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="#start" aria-label="Wunschfunken – Startseite"><span class="brand-icon" aria-hidden="true">✦</span><span>Wunsch<span class="brand-accent">funken</span></span></a>
+      <div class="header-actions"><span id="syncStatus" class="sync-status"><span class="status-dot"></span><span id="syncText">Wird verbunden</span></span><button id="adminButton" class="button button-outline button-small" type="button">Verwalten</button></div>
+    </header>
+    <main id="start">
+      <section class="hero" aria-labelledby="mainTitle">
+        <div class="hero-copy">
+          <span class="eyebrow"><span class="sparkle">✳</span> SCHENKEN LEICHT GEMACHT</span>
+          <h1 id="mainTitle">Kleine Wünsche.<br><em>Große Freude.</em></h1>
+          <p id="introText">Hier findest du Geschenkideen, über die wir uns freuen. Such dir etwas aus und reserviere es, bevor du bestellst – so wird nichts doppelt verschenkt.</p>
+          <a class="button button-primary hero-button" href="#geschenke">Geschenkideen entdecken <span aria-hidden="true">↗</span></a>
+          <div class="hero-footnote"><span aria-hidden="true">♥</span> Ganz unkompliziert und ohne Anmeldung</div>
+        </div>
+        <div class="hero-visual" aria-hidden="true"><div class="hero-orbit orbit-a"></div><div class="hero-orbit orbit-b"></div><div class="floating-star star-a">✧</div><div class="floating-star star-b">✳</div><div class="floating-star star-c">✦</div>
+          <div class="gift-illustration"><div class="gift-bow bow-left"></div><div class="gift-bow bow-right"></div><div class="gift-knot"></div><div class="gift-lid"></div><div class="gift-box"><div class="gift-ribbon"></div></div></div>
+          <div class="visual-label"><span class="label-heart">♥</span> Mit Liebe ausgesucht</div>
+        </div>
+      </section>
+      <section class="how-it-works" aria-label="So funktioniert es">
+        <div class="step"><span class="step-index">01</span><div><strong>Lieblingsgeschenk finden</strong><small>Stöbere durch die Ideen.</small></div></div>
+        <div class="step"><span class="step-index">02</span><div><strong>Mit einem Klick reservieren</strong><small>So vermeidest du Doppelkäufe.</small></div></div>
+        <div class="step"><span class="step-index">03</span><div><strong>Ganz entspannt bestellen</strong><small>Danach als bestellt markieren.</small></div></div>
+      </section>
+      <div id="setupNotice" class="setup-notice" role="status" hidden><strong>Vorschaumodus</strong><p>Die Gestaltung ist bereit. Damit Reservierungen für alle synchronisiert werden, müssen noch <code>config.js</code> und die Supabase-Datenbank eingerichtet werden. Die Beispielgeschenke können noch nicht reserviert werden.</p></div>
+      <section class="wishlist-section" id="geschenke" aria-labelledby="wishlistTitle">
+        <div class="section-topline"><span class="eyebrow">DIE WUNSCHLISTE</span><span class="section-sparkle" aria-hidden="true">✴</span></div>
+        <div class="section-heading-row"><div><h2 id="wishlistTitle">Geschenkideen <span class="pink-dot">.</span></h2><p class="section-description">Du möchtest etwas übernehmen? Reserviere es am besten vor dem Kauf.</p></div><div class="count-box"><strong id="availableCount">–</strong><span>noch frei</span></div></div>
+        <div class="filter-bar"><div class="filters" role="group" aria-label="Geschenke filtern"><button type="button" id="showAllButton" class="filter-button active" aria-pressed="true">Alle Geschenke</button><button type="button" id="showFreeButton" class="filter-button" aria-pressed="false">Nur verfügbare</button></div><span class="results" id="resultsText">Lade die Geschenkideen …</span></div>
+        <div id="giftGrid" class="gift-grid" aria-live="polite"></div>
+        <div id="emptyState" class="empty-state" hidden><div class="empty-icon">♡</div><h3>Noch keine Geschenke hier</h3><p id="emptyMessage">Bald gibt es hier schöne Geschenkideen.</p></div>
+        <div id="loadError" class="load-error" role="alert" hidden></div>
+      </section>
+      <section class="end-note"><span class="note-icon">✦</span><div><h2>Das schönste Geschenk ist das Mitdenken.</h2><p>Danke, dass du einen Wunsch erfüllst. So bleibt das Schenken eine Überraschung – aber ohne Doppelkäufe.</p></div><span class="note-heart" aria-hidden="true">♡</span></section>
+      <section id="adminPanel" class="admin-panel" hidden aria-labelledby="adminTitle"><div class="admin-heading"><div><span class="eyebrow">NUR FÜR DIE VERWALTUNG</span><h2 id="adminTitle">Wunschliste bearbeiten</h2><p>Neue Geschenke erscheinen für alle Besucher.</p></div><button type="button" class="button button-outline button-small" id="logoutButton">Abmelden</button></div>
+        <form id="giftForm" class="admin-form"><div class="form-field"><label for="giftTitle">Name des Geschenks *</label><input id="giftTitle" name="title" maxlength="120" placeholder="z. B. Kaffeemaschine" required></div><div class="form-field"><label for="giftUrl">Link zum Shop (https://) *</label><input id="giftUrl" name="url" type="url" placeholder="https://..." required></div><div class="form-field"><label for="giftImage">Bild-URL (optional)</label><input id="giftImage" name="image_url" type="url" placeholder="https://.../bild.jpg"></div><div class="form-field form-field-wide"><label for="giftNote">Kleine Beschreibung (optional)</label><textarea id="giftNote" name="note" rows="3" maxlength="500" placeholder="Größe, Farbe, Variante oder ein Hinweis …"></textarea></div><button class="button button-primary" type="submit" id="addGiftButton">+ Geschenk hinzufügen</button><span id="adminFormMessage" class="form-message" role="status"></span></form>
+        <p class="admin-help">Zum Löschen oder Freigeben eines Geschenks findest du bei jeder Karte zusätzliche Schaltflächen.</p>
+      </section>
+    </main>
+    <footer class="site-footer"><span>✦ Wunschfunken</span><span>Mit Liebe zusammengestellt.</span></footer>
+  </div>
+  <dialog id="reserveDialog" class="modal"><form method="dialog" class="modal-content" id="reservationForm"><button class="modal-close" value="cancel" type="submit" aria-label="Schließen">×</button><div class="modal-art">♡</div><span class="eyebrow">EIN SCHÖNER WUNSCH</span><h2>Du möchtest das übernehmen?</h2><p>Du reservierst <strong id="reserveGiftTitle"></strong>. Danach ist das Geschenk für andere als vergeben markiert.</p><p class="modal-hint">Bitte reserviere nur, wenn du das Geschenk tatsächlich besorgen möchtest. Danach kannst du über den Shop-Link bestellen.</p><div class="modal-actions"><button class="button button-outline" type="submit" value="cancel">Abbrechen</button><button class="button button-primary" id="confirmReserveButton" type="button">Jetzt reservieren</button></div></form></dialog>
+  <dialog id="loginDialog" class="modal"><form class="modal-content" id="loginForm"><button class="modal-close" type="button" id="closeLoginButton" aria-label="Schließen">×</button><div class="modal-art">✦</div><span class="eyebrow">VERWALTUNG</span><h2>Willkommen zurück</h2><p>Melde dich an, um Geschenkideen hinzuzufügen und Reservierungen zurückzusetzen.</p><div class="form-field"><label for="adminEmail">E-Mail</label><input type="email" id="adminEmail" autocomplete="username" required></div><div class="form-field"><label for="adminPassword">Passwort</label><input type="password" id="adminPassword" autocomplete="current-password" required></div><p id="loginError" class="form-error" role="alert"></p><button type="submit" id="loginSubmitButton" class="button button-primary button-full">Anmelden</button></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
