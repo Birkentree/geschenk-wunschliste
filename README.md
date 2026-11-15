@@ -4,7 +4,7 @@ Eine schöne, mobilfreundliche Geschenkwunschliste für Freunde und Bekannte.
 
 **Das kann die Seite:**
 
-- Nur die Verwaltung meldet sich an und fügt Geschenkideen mit Shop-Link, Beschreibung und optionalem Foto-Link hinzu.
+- Nur die Verwaltung meldet sich an und fügt Geschenkideen mit Shop-Link, Beschreibung und optionalem hochgeladenem Foto hinzu.
 - Besucher brauchen **kein Konto**. Sie sehen freie, reservierte und bestellte Geschenke.
 - Ein Besucher reserviert ein Geschenk **vor dem Kauf**. Danach kann es keine zweite Person reservieren.
 - Nach dem Kauf klickt die reservierende Person auf **„Ich habe es bestellt“**. Das Geschenk wird als **„Bestellt“** angezeigt.
@@ -75,7 +75,7 @@ Unter *Settings → Pages* erscheint nach erfolgreicher Veröffentlichung ein Li
 
 1. Öffne die veröffentlichte Seite.
 2. Klicke rechts oben auf **„Verwalten“** und melde dich mit deinem Supabase-Administrator-Konto an.
-3. Trage einen Geschenknamen, die Shop-URL und optional Bild-URL und Beschreibung ein. Klicke auf **„Geschenk hinzufügen“**.
+3. Trage einen Geschenknamen und die Shop-URL ein. Optional wählst du bei „Titelbild aus deinen Dateien“ ein JPG-, PNG-, WebP- oder GIF-Bild mit maximal 5 MB aus. Eine Vorschau erscheint vor dem Speichern; das Bild wird automatisch in Supabase Storage hochgeladen. Klicke auf **„Geschenk hinzufügen“**.
 4. Öffne die Seite gleichzeitig auf einem anderen Gerät oder in einem privaten Browserfenster.
 5. Reserviere dort das Geschenk. Auf allen Geräten erscheint es als **„Reserviert“**. Nur in dem Browser, der es reserviert hat, erscheinen **„Ich habe es bestellt“** und **„Reservierung freigeben“**.
 6. Markiere den tatsächlichen Kauf als bestellt; der Status wird für alle zu **„Bestellt“**.
@@ -107,3 +107,9 @@ Die Demo funktioniert ohne Supabase als **Vorschau**, aber darin können Geschen
 Die Website benötigt zum Betrieb nur einen statischen Webserver wie GitHub Pages und die Supabase-API. Es gibt keine eigenen Server oder Build-Schritte. Sie verwendet [supabase-js v2](https://supabase.com/docs/reference/javascript/introduction) über ein CDN. Das Reservieren ist eine einzelne Datenbanktransaktion mit bedingtem `UPDATE` und einem geheimen Browser-Schlüssel. Die Tabellen haben RLS und explizite Berechtigungen; privilegierte SQL-Funktionen liegen im nicht exponierten Schema `private`.
 
 **Referenzen:** [GitHub Pages – Publishing Source](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site), [Supabase – Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security), [Supabase – Database Functions](https://supabase.com/docs/guides/database/functions).
+
+## Titelbilder direkt hochladen (Erweiterung)
+
+Der öffentliche Supabase-Storage-Bucket `gift-images` speichert hochgeladene Titelbilder. Nur freigeschaltete Administratoren dürfen Bilder hochladen und löschen; alle Besucher dürfen die Bilder ansehen. Das Einrichten des Buckets ist in `gift-image-storage.sql` dokumentiert. Die SQL-Datei muss auf einer bereits eingerichteten Datenbank nicht erneut ausgeführt werden.
+
+Im Formular **Verwalten → Neues Geschenk** kannst du jetzt eine Datei von deinem Gerät auswählen. Unterstützt werden JPG, PNG, WebP und GIF bis 5 MB. Du siehst das Bild vor dem Speichern. Beim Löschen eines Geschenks wird dessen hochgeladenes Bild nach Möglichkeit ebenfalls entfernt. Bestehende Geschenke und bisherige Bildlinks bleiben bestehen.
