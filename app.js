@@ -8,7 +8,49 @@ let db = null;
 try { if (configured && window.supabase?.createClient) db = window.supabase.createClient(cfg.supabaseUrl, cfg.supabasePublishableKey); } catch (e) { console.error(e); }
 const demo = !db;
 const storageKey = 'wunschfunken-reservierungen:' + (cfg.supabaseUrl || 'demo');
-let gifts = [], onlyFree = false, admin = false, selectedGift = null, toastTimeout;
+let gifts = [], onlyFree = false, admin = false, selectedGift = null, toastTimeout, imagePreviewUrl = null;
+const IMAGE_BUCKET = 'gift-images';
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = new Map([
+ ['image/jpeg','jpg'],['image/png','png'],['image/webp','webp'],['image/gif','gif']
+]);
+function resetPreview(){
+ if(imagePreviewUrl){URL.revokeObjectURL(imagePreviewUrl);imagePreviewUrl=null;}
+ $('giftImagePreviewWrap').hidden=true;
+ $('giftImagePreview').removeAttribute('src');
+}
+function previewChosenImage(){
+ resetPreview();
+ const file=$('giftImage').files?.[0];
+ $('adminFormMessage').textContent='';
+ if(!file)return;
+ if(!IMAGE_TYPES.has(file.type)){
+  $('adminFormMessage').textContent='Bitte ein JPG-, PNG-, WebP- oder GIF-Bild auswählen.';
+  $('giftImage').value='';
+  return;
+ }
+ if(file.size>MAX_IMAGE_BYTES){
+  $('adminFormMessage').textContent='Das Bild ist zu groß. Bitte eine Datei bis 5 MB auswählen.';
+  $('giftImage').value='';
+  return;
+ }
+ imagePreviewUrl=URL.createObjectURL(file);
+ $('giftImagePreview').src=imagePreviewUrl;
+ $('giftImagePreviewWrap').hidden=false;
+}
+function uploadedImagePath(imageUrl){
+ if(!imageUrl)return null;
+ const prefix=cfg.supabaseUrl+'/storage/v1/object/public/'+IMAGE_BUCKET+'/';
+ if(!imageUrl.startsWith(prefix))return null;
+ const path=imageUrl.slice(prefix.length);
+ return /^gifts\/[a-f0-9-]+\.(jpg|png|webp|gif)$/.test(path)?path:null;
+}
+async function removeUploadedImage(imageUrl){
+ const path=uploadedImagePath(imageUrl);
+ if(!path)return;
+ const {error}=await db.storage.from(IMAGE_BUCKET).remove([path]);
+ if(error)console.warn('Titelbild konnte nicht entfernt werden:',error);
+}
 const examples = [
  {id:'demo1',title:'Eine schöne Kaffeetasse',note:'Am liebsten in Creme oder Altrosa.',url:'',image_url:null,status:'frei'},
  {id:'demo2',title:'Ein gemütliches Buch',note:'Für entspannte Abende auf dem Sofa.',url:'',image_url:null,status:'frei'},
@@ -97,12 +139,42 @@ async function login(event){
 }
 async function addGift(event){
  event.preventDefault();if(!db||!admin)return;
- const values={title:$('giftTitle').value.trim(),url:$('giftUrl').value.trim(),image_url:$('giftImage').value.trim()||null,note:$('giftNote').value.trim()||null};
- if(!values.title||!https(values.url)||(values.image_url&&!https(values.image_url))){$('adminFormMessage').textContent='Bitte Namen und gültige https://-Links eintragen.';return;}
+ const values={title:$('giftTitle').value.trim(),url:$('giftUrl').value.trim(),image_url:null,note:$('giftNote').value.trim()||null};
+ const image=$('giftImage').files?.[0]||null;
+ if(!values.title||!https(values.url)){$('adminFormMessage').textContent='Bitte Namen und einen gültigen https://-Shop-Link eintragen.';return;}
+ if(image&&(!IMAGE_TYPES.has(image.type)||image.size>MAX_IMAGE_BYTES)){
+  $('adminFormMessage').textContent='Bitte ein JPG-, PNG-, WebP- oder GIF-Bild mit maximal 5 MB wählen.';return;
+ }
  $('addGiftButton').disabled=true;
- try{const {error}=await db.from('gifts').insert(values);if(error)throw error;$('giftForm').reset();$('adminFormMessage').textContent='Geschenk hinzugefügt.';alertMessage('Geschenk hinzugefügt.');await refresh();}
- catch(e){console.error(e);$('adminFormMessage').textContent='Hinzufügen fehlgeschlagen. Bitte Rechte prüfen.';}
- finally{$('addGiftButton').disabled=false;}
+ let uploadedPath=null;
+ try{
+  if(image){
+   if(!crypto?.randomUUID)throw Error('Zum Hochladen ist eine sichere HTTPS-Verbindung erforderlich.');
+   uploadedPath='gifts/'+crypto.randomUUID()+'.'+IMAGE_TYPES.get(image.type);
+   $('adminFormMessage').textContent='Bild wird hochgeladen …';
+   const {error:uploadError}=await db.storage.from(IMAGE_BUCKET).upload(uploadedPath,image,{
+    contentType:image.type,cacheControl:'3600',upsert:false
+   });
+   if(uploadError)throw uploadError;
+   values.image_url=db.storage.from(IMAGE_BUCKET).getPublicUrl(uploadedPath).data.publicUrl;
+  }
+  $('adminFormMessage').textContent='Geschenk wird gespeichert …';
+  const {error}=await db.from('gifts').insert(values);
+  if(error)throw error;
+  uploadedPath=null;
+  $('giftForm').reset();
+  resetPreview();
+  $('adminFormMessage').textContent='Geschenk hinzugefügt.';
+  alertMessage('Geschenk hinzugefügt.');
+  await refresh();
+ }catch(e){
+  console.error(e);
+  if(uploadedPath){
+   const {error:cleanupError}=await db.storage.from(IMAGE_BUCKET).remove([uploadedPath]);
+   if(cleanupError)console.warn('Nicht zugeordnetes Bild:',cleanupError);
+  }
+  $('adminFormMessage').textContent='Speichern fehlgeschlagen. Prüfe die Bilddatei oder versuche es erneut.';
+ }finally{$('addGiftButton').disabled=false;}
 }
 async function resetGift(gift){
  if(!admin||!confirm('„'+gift.title+'“ wieder freigeben?'))return;
@@ -111,7 +183,13 @@ async function resetGift(gift){
 }
 async function deleteGift(gift){
  if(!admin||!confirm('„'+gift.title+'“ endgültig entfernen?'))return;
- try{const {error}=await db.from('gifts').delete().eq('id',gift.id);if(error)throw error;forgetSecret(gift.id);alertMessage('Geschenk entfernt.');await refresh();}
+ try{
+  const {error}=await db.from('gifts').delete().eq('id',gift.id);if(error)throw error;
+  forgetSecret(gift.id);
+  await removeUploadedImage(gift.image_url);
+  alertMessage('Geschenk entfernt.');
+  await refresh();
+ }
  catch(e){console.error(e);alertMessage('Löschen fehlgeschlagen.');}
 }
 async function main(){
@@ -123,6 +201,8 @@ async function main(){
  $('confirmReserveButton').addEventListener('click',reserve);
  $('loginForm').addEventListener('submit',login);
  $('giftForm').addEventListener('submit',addGift);
+ $('giftImage').addEventListener('change',previewChosenImage);
+ $('clearGiftImage').addEventListener('click',()=>{$('giftImage').value='';resetPreview();$('adminFormMessage').textContent='';});
  $('logoutButton').addEventListener('click',async()=>{await db.auth.signOut();await syncAdmin(null);alertMessage('Abgemeldet.');});
  if(demo){$('setupNotice').hidden=false;connection(false,'Vorschaumodus');gifts=examples;render();return;}
  await refresh();
